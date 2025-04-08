@@ -3,6 +3,7 @@ import os
 import fitz  # PyMuPDF
 import pandas as pd
 import datetime
+import base64
 
 # ------------------------
 # 初期設定
@@ -77,6 +78,14 @@ def load_or_create_db():
     else:
         return process_pdfs()
 
+def show_pdf_viewer(file_path):
+    with open(file_path, "rb") as f:
+        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+        pdf_display = f"""
+        <iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="500px" type="application/pdf"></iframe>
+        """
+        st.markdown(pdf_display, unsafe_allow_html=True)
+
 def main():
     st.set_page_config(page_title="履歴書検索システム", layout="wide")
     st.title("📄 履歴書検索システム（完全版）")
@@ -106,9 +115,9 @@ def main():
         df = load_or_create_db()
 
     st.markdown("## 🔍 キーワード検索（名前・全文・スキル）")
-    keyword1 = st.text_input("OR検索ワード（いずれかを含む）")
-    keyword2 = st.text_input("AND検索ワード（すべて含む）")
-    keyword3 = st.text_input("除外ワード（含まないもの）")
+    keyword1 = st.text_input("OR検索ワード（スペース区切りで複数指定可）")
+    keyword2 = st.text_input("AND検索ワード（スペース区切りで複数指定可）")
+    keyword3 = st.text_input("除外ワード（スペース区切りで複数指定可）")
 
     def match_keywords(row):
         text = " ".join([str(row.get("名前", "")), str(row.get("スキル", "")), str(row.get("テキスト全文", ""))]).lower()
@@ -122,18 +131,18 @@ def main():
     st.markdown(f"### 👤 検索結果（{len(result)} 件）")
     for _, row in result.iterrows():
         st.markdown(f"""
-        <div style='background-color: #1e1e1e; color: #ffffff; padding: 12px; margin: 10px 0; border-radius: 10px; border: 1px solid #444; box-shadow: 0 0 10px rgba(255,255,255,0.05);'>
-            <h4 style='margin-bottom: 0.5em;'>🧑‍💼 {row['名前']}</h4>
-            <p>🧠 スキル: {row['スキル']}</p>
-            <p>📎 ファイル名: {row['ファイル名']}</p>
-            <p>{row['テキスト全文'][:300]}...</p>
+        <div style='background-color: #1e1e1e; color: #ffffff; padding: 8px; margin: 6px 0; border-radius: 8px; border: 1px solid #444; box-shadow: 0 0 6px rgba(255,255,255,0.03); font-size: 14px;'>
+            <strong>🧑‍💼 {row['名前']}</strong><br>
+            🧠 スキル: {row['スキル']}<br>
+            📎 ファイル名: {row['ファイル名']}<br>
+            <span style='opacity: 0.7;'>{row['テキスト全文'][:150]}...</span>
         </div>
         """, unsafe_allow_html=True)
 
-        with st.expander("📄 履歴書全文を表示"):
-            st.write(row['テキスト全文'][:2000] + "...")
+        with st.expander("📄 履歴書を表示（PDFビュー）"):
             pdf_path = os.path.join(PDF_FOLDER, row['ファイル名'])
             if os.path.exists(pdf_path):
+                show_pdf_viewer(pdf_path)
                 with open(pdf_path, "rb") as f:
                     st.download_button("📎 PDFをダウンロード", f.read(), file_name=row["ファイル名"])
             if st.button(f"⭐ お気に入りに追加 - {row['名前']}", key=row['ファイル名']):
