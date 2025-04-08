@@ -4,6 +4,7 @@ import fitz  # PyMuPDF
 import pandas as pd
 import datetime
 import base64
+import re
 
 # ------------------------
 # 初期設定
@@ -103,11 +104,18 @@ def get_memo_info(name, filename):
         return match.iloc[0]["メモ"], match.iloc[0]["評価"], match.iloc[0]["ステータス"]
     return "", "", ""
 
+def highlight_keywords(text, keywords):
+    if not keywords:
+        return text
+    escaped_keywords = [re.escape(k) for k in keywords.split()]
+    pattern = re.compile(r"(" + "|".join(escaped_keywords) + r")", re.IGNORECASE)
+    highlighted = pattern.sub(r'<mark>\1</mark>', text)
+    return highlighted
+
 def main():
     st.set_page_config(page_title="社内 求人管理システム", layout="wide")
     st.title("📄 社内 求人管理システム")
 
-    # パスワード認証
     password = st.text_input("🔒 パスワードを入力", type="password")
     if password != "cyberlead2024":
         st.warning("正しいパスワードを入力してください")
@@ -163,7 +171,8 @@ def main():
         """, unsafe_allow_html=True)
 
         with st.expander("📄 履歴書テキストを全文表示＆編集"):
-            st.text_area("📖 全文内容", row['テキスト全文'], height=400, disabled=True)
+            highlighted_text = highlight_keywords(row['テキスト全文'], f"{keyword1} {keyword2}")
+            st.markdown(f"<div style='background-color:#fff;border:1px solid #ccc;padding:10px;height:400px;overflow-y:scroll;color:#000'>{highlighted_text}</div>", unsafe_allow_html=True)
             with open(os.path.join(PDF_FOLDER, row['ファイル名']), "rb") as f:
                 st.download_button("📎 PDFをダウンロード", f.read(), file_name=row["ファイル名"])
             memo = st.text_area("📝 面談メモを入力", value=memo_text, key=f"memo_{row['ファイル名']}")
