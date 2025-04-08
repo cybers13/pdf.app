@@ -106,19 +106,29 @@ def main():
         df = load_or_create_db()
 
     st.markdown("## 🔍 キーワード検索（名前・全文・スキル）")
-    keyword = st.text_input("検索ワード")
+    keyword1 = st.text_input("OR検索ワード（いずれかを含む）")
+    keyword2 = st.text_input("AND検索ワード（すべて含む）")
+    keyword3 = st.text_input("除外ワード（含まないもの）")
 
-    if keyword:
-        result = df[df.apply(lambda row:
-            keyword.lower() in str(row.get("名前", "")).lower() or
-            keyword.lower() in str(row.get("スキル", "")).lower() or
-            keyword.lower() in str(row.get("テキスト全文", "")).lower(), axis=1)]
-    else:
-        result = df
+    def match_keywords(row):
+        text = " ".join([str(row.get("名前", "")), str(row.get("スキル", "")), str(row.get("テキスト全文", ""))]).lower()
+        or_ok = any(k.lower() in text for k in keyword1.split()) if keyword1 else True
+        and_ok = all(k.lower() in text for k in keyword2.split()) if keyword2 else True
+        not_ok = all(k.lower() not in text for k in keyword3.split()) if keyword3 else True
+        return or_ok and and_ok and not_ok
+
+    result = df[df.apply(match_keywords, axis=1)]
 
     st.markdown(f"### 👤 検索結果（{len(result)} 件）")
     for _, row in result.iterrows():
-        with st.expander(f"{row['名前']} | {row['スキル']} | {row['ファイル名']}"):
+        st.markdown(f"""
+        <div style='border:1px solid #ccc; border-radius:10px; padding:10px; margin:10px 0; background:#f9f9f9'>
+        <h4>🧑‍💼 {row['名前']} | 🧠 {row['スキル']} | 📎 {row['ファイル名']}</h4>
+        <p>{row['テキスト全文'][:300]}...</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        with st.expander("📄 履歴書全文を表示"):
             st.write(row['テキスト全文'][:2000] + "...")
             pdf_path = os.path.join(PDF_FOLDER, row['ファイル名'])
             if os.path.exists(pdf_path):
@@ -128,7 +138,12 @@ def main():
                 save_favorite(row["名前"], row["ファイル名"])
                 st.success("お気に入りに追加しました！")
 
-    st.markdown("### 📥 検索結果をCSVでダウンロード")
+    st.markdown("### 📊 スキル別保有人数")
+    skill_counts = df["スキル"].str.split(', ').explode().value_counts()
+    for skill, count in skill_counts.items():
+        st.write(f"{skill}: {count}人")
+
+    st.markdown("### 📈 検索結果をCSVでダウンロード")
     st.download_button("CSVダウンロード", result.to_csv(index=False), "search_result.csv")
 
 if __name__ == "__main__":
