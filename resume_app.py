@@ -110,7 +110,7 @@ def highlight_keywords(text, keywords):
     escaped_keywords = [re.escape(k) for k in keywords.split()]
     pattern = re.compile(r"(" + "|".join(escaped_keywords) + r")", re.IGNORECASE)
     highlighted = pattern.sub(r'<mark>\1</mark>', text)
-    return highlighted
+    return highlighted.replace("\n", "<br>")
 
 def main():
     st.set_page_config(page_title="社内 求人管理システム", layout="wide")
@@ -172,7 +172,7 @@ def main():
 
         with st.expander("📄 履歴書テキストを全文表示＆編集"):
             highlighted_text = highlight_keywords(row['テキスト全文'], f"{keyword1} {keyword2}")
-            st.markdown(f"<div style='background-color:#fff;border:1px solid #ccc;padding:10px;height:400px;overflow-y:scroll;color:#000'>{highlighted_text}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='background-color:#fff;border:1px solid #ccc;padding:10px;height:400px;overflow-y:scroll;color:#000;font-family:monospace;white-space:pre-wrap'>{highlighted_text}</div>", unsafe_allow_html=True)
             with open(os.path.join(PDF_FOLDER, row['ファイル名']), "rb") as f:
                 st.download_button("📎 PDFをダウンロード", f.read(), file_name=row["ファイル名"])
             memo = st.text_area("📝 面談メモを入力", value=memo_text, key=f"memo_{row['ファイル名']}")
