@@ -12,6 +12,7 @@ PDF_FOLDER = "pdfs"
 CACHE_FILE = "resume_db.csv"
 FAV_FILE = "favorites.csv"
 LOG_FILE = "upload_log.csv"
+MEMO_FILE = "interview_notes.csv"
 
 os.makedirs(PDF_FOLDER, exist_ok=True)
 
@@ -54,6 +55,11 @@ def save_favorite(name, filename):
         fav_df.loc[len(fav_df)] = [name, filename]
         fav_df.to_csv(FAV_FILE, index=False)
 
+def remove_favorite(name, filename):
+    fav_df = load_favorites()
+    fav_df = fav_df[~((fav_df["名前"] == name) & (fav_df["ファイル名"] == filename))]
+    fav_df.to_csv(FAV_FILE, index=False)
+
 def process_pdfs():
     data = []
     for filename in os.listdir(PDF_FOLDER):
@@ -82,17 +88,36 @@ def show_pdf_viewer(file_path):
     with open(file_path, "rb") as f:
         base64_pdf = base64.b64encode(f.read()).decode('utf-8')
         pdf_display = f"""
-        <iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="500px" type="application/pdf"></iframe>
+        <iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="400px" type="application/pdf"></iframe>
         """
         st.markdown(pdf_display, unsafe_allow_html=True)
 
+def load_memos():
+    if os.path.exists(MEMO_FILE):
+        return pd.read_csv(MEMO_FILE)
+    else:
+        return pd.DataFrame(columns=["名前", "ファイル名", "メモ", "評価", "ステータス"])
+
+def save_memo(name, filename, memo, score, status):
+    df = load_memos()
+    df = df[~((df["名前"] == name) & (df["ファイル名"] == filename))]
+    df.loc[len(df)] = [name, filename, memo, score, status]
+    df.to_csv(MEMO_FILE, index=False)
+
+def get_memo_info(name, filename):
+    df = load_memos()
+    match = df[(df["名前"] == name) & (df["ファイル名"] == filename)]
+    if not match.empty:
+        return match.iloc[0]["メモ"], match.iloc[0]["評価"], match.iloc[0]["ステータス"]
+    return "", "", ""
+
 def main():
-    st.set_page_config(page_title="履歴書検索システム", layout="wide")
-    st.title("📄 履歴書検索システム（完全版）")
+    st.set_page_config(page_title="社内 求人管理システム", layout="wide")
+    st.title("📄 社内 求人管理システム")
 
     # パスワード認証
     password = st.text_input("🔒 パスワードを入力", type="password")
-    if password != "admin123":
+    if password != "cyberlead2024":
         st.warning("正しいパスワードを入力してください")
         st.stop()
 
@@ -100,9 +125,11 @@ def main():
     fav_df = load_favorites()
     for _, row in fav_df.iterrows():
         st.sidebar.write(f"✅ {row['名前']} ({row['ファイル名']})")
+        if st.sidebar.button(f"❌ 削除 - {row['名前']}", key=f"remove_{row['ファイル名']}"):
+            remove_favorite(row['名前'], row['ファイル名'])
+            st.experimental_rerun()
 
-    st.markdown("## 📤 履歴書PDFをアップロード")
-    uploaded_files = st.file_uploader("PDFファイルを選択（複数可）", type="pdf", accept_multiple_files=True)
+    uploaded_files = st.file_uploader("📤 履歴書PDFをアップロード（複数可）", type="pdf", accept_multiple_files=True)
     if uploaded_files:
         for file in uploaded_files:
             file_path = os.path.join(PDF_FOLDER, file.name)
@@ -114,7 +141,6 @@ def main():
     else:
         df = load_or_create_db()
 
-    st.markdown("## 🔍 キーワード検索（名前・全文・スキル）")
     keyword1 = st.text_input("OR検索ワード（スペース区切りで複数指定可）")
     keyword2 = st.text_input("AND検索ワード（スペース区切りで複数指定可）")
     keyword3 = st.text_input("除外ワード（スペース区切りで複数指定可）")
@@ -130,24 +156,33 @@ def main():
 
     st.markdown(f"### 👤 検索結果（{len(result)} 件）")
     for _, row in result.iterrows():
+        memo_text, score_text, status_text = get_memo_info(row['名前'], row['ファイル名'])
         st.markdown(f"""
-        <div style='background-color: #1e1e1e; color: #ffffff; padding: 8px; margin: 6px 0; border-radius: 8px; border: 1px solid #444; box-shadow: 0 0 6px rgba(255,255,255,0.03); font-size: 14px;'>
-            <strong>🧑‍💼 {row['名前']}</strong><br>
-            🧠 スキル: {row['スキル']}<br>
-            📎 ファイル名: {row['ファイル名']}<br>
-            <span style='opacity: 0.7;'>{row['テキスト全文'][:150]}...</span>
+        <div style='background-color: #1e1e1e; color: #ffffff; padding: 10px; margin: 8px 0; border-radius: 10px; border: 1px solid #444; box-shadow: 0 0 6px rgba(255,255,255,0.03); font-size: 14px;'>
+            <table style='width: 100%;'>
+                <tr><td style='width: 25%;'><strong>🧑‍💼 名前:</strong></td><td>{row['名前']}</td></tr>
+                <tr><td><strong>🧠 スキル:</strong></td><td>{row['スキル']}</td></tr>
+                <tr><td><strong>📎 ファイル名:</strong></td><td>{row['ファイル名']}</td></tr>
+                <tr><td><strong>📝 概要:</strong></td><td>{row['テキスト全文'][:150]}...</td></tr>
+                <tr><td><strong>📒 面談メモ:</strong></td><td>{memo_text}</td></tr>
+                <tr><td><strong>⭐ 評価:</strong></td><td>{score_text}</td></tr>
+                <tr><td><strong>📌 ステータス:</strong></td><td>{status_text}</td></tr>
+            </table>
         </div>
         """, unsafe_allow_html=True)
 
-        with st.expander("📄 履歴書を表示（PDFビュー）"):
+        with st.expander("📄 履歴書を表示・面談メモを編集"):
             pdf_path = os.path.join(PDF_FOLDER, row['ファイル名'])
             if os.path.exists(pdf_path):
                 show_pdf_viewer(pdf_path)
                 with open(pdf_path, "rb") as f:
                     st.download_button("📎 PDFをダウンロード", f.read(), file_name=row["ファイル名"])
-            if st.button(f"⭐ お気に入りに追加 - {row['名前']}", key=row['ファイル名']):
-                save_favorite(row["名前"], row["ファイル名"])
-                st.success("お気に入りに追加しました！")
+            memo = st.text_area("📝 面談メモを入力", value=memo_text, key=f"memo_{row['ファイル名']}")
+            score = st.selectbox("⭐ 評価", ["", "A", "B", "C"], index=["", "A", "B", "C"].index(score_text) if score_text in ["A", "B", "C"] else 0, key=f"score_{row['ファイル名']}")
+            status = st.selectbox("📌 ステータス", ["", "通過", "保留", "不採用"], index=["", "通過", "保留", "不採用"].index(status_text) if status_text in ["通過", "保留", "不採用"] else 0, key=f"status_{row['ファイル名']}")
+            if st.button("💾 メモ保存", key=f"save_{row['ファイル名']}"):
+                save_memo(row['名前'], row['ファイル名'], memo, score, status)
+                st.success("保存しました")
 
     st.markdown("### 📊 スキル別保有人数")
     skill_counts = df["スキル"].str.split(', ').explode().value_counts()
