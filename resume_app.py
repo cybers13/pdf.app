@@ -84,14 +84,6 @@ def load_or_create_db():
     else:
         return process_pdfs()
 
-def show_pdf_viewer(file_path):
-    with open(file_path, "rb") as f:
-        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-        pdf_display = f"""
-        <iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="400px" type="application/pdf"></iframe>
-        """
-        st.markdown(pdf_display, unsafe_allow_html=True)
-
 def load_memos():
     if os.path.exists(MEMO_FILE):
         return pd.read_csv(MEMO_FILE)
@@ -163,7 +155,6 @@ def main():
                 <tr><td style='width: 25%;'><strong>🧑‍💼 名前:</strong></td><td>{row['名前']}</td></tr>
                 <tr><td><strong>🧠 スキル:</strong></td><td>{row['スキル']}</td></tr>
                 <tr><td><strong>📎 ファイル名:</strong></td><td>{row['ファイル名']}</td></tr>
-                <tr><td><strong>📝 概要:</strong></td><td>{row['テキスト全文'][:150]}...</td></tr>
                 <tr><td><strong>📒 面談メモ:</strong></td><td>{memo_text}</td></tr>
                 <tr><td><strong>⭐ 評価:</strong></td><td>{score_text}</td></tr>
                 <tr><td><strong>📌 ステータス:</strong></td><td>{status_text}</td></tr>
@@ -171,12 +162,10 @@ def main():
         </div>
         """, unsafe_allow_html=True)
 
-        with st.expander("📄 履歴書を表示・面談メモを編集"):
-            pdf_path = os.path.join(PDF_FOLDER, row['ファイル名'])
-            if os.path.exists(pdf_path):
-                show_pdf_viewer(pdf_path)
-                with open(pdf_path, "rb") as f:
-                    st.download_button("📎 PDFをダウンロード", f.read(), file_name=row["ファイル名"])
+        with st.expander("📄 履歴書テキストを全文表示＆編集"):
+            st.text_area("📖 全文内容", row['テキスト全文'], height=400, disabled=True)
+            with open(os.path.join(PDF_FOLDER, row['ファイル名']), "rb") as f:
+                st.download_button("📎 PDFをダウンロード", f.read(), file_name=row["ファイル名"])
             memo = st.text_area("📝 面談メモを入力", value=memo_text, key=f"memo_{row['ファイル名']}")
             score = st.selectbox("⭐ 評価", ["", "A", "B", "C"], index=["", "A", "B", "C"].index(score_text) if score_text in ["A", "B", "C"] else 0, key=f"score_{row['ファイル名']}")
             status = st.selectbox("📌 ステータス", ["", "通過", "保留", "不採用"], index=["", "通過", "保留", "不採用"].index(status_text) if status_text in ["通過", "保留", "不採用"] else 0, key=f"status_{row['ファイル名']}")
