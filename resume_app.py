@@ -122,9 +122,11 @@ def main():
     st.markdown(f"### 👤 検索結果（{len(result)} 件）")
     for _, row in result.iterrows():
         st.markdown(f"""
-        <div style='border:1px solid #ccc; border-radius:10px; padding:10px; margin:10px 0; background:#f9f9f9'>
-        <h4>🧑‍💼 {row['名前']} | 🧠 {row['スキル']} | 📎 {row['ファイル名']}</h4>
-        <p>{row['テキスト全文'][:300]}...</p>
+        <div style='background-color: #1e1e1e; color: #ffffff; padding: 12px; margin: 10px 0; border-radius: 10px; border: 1px solid #444; box-shadow: 0 0 10px rgba(255,255,255,0.05);'>
+            <h4 style='margin-bottom: 0.5em;'>🧑‍💼 {row['名前']}</h4>
+            <p>🧠 スキル: {row['スキル']}</p>
+            <p>📎 ファイル名: {row['ファイル名']}</p>
+            <p>{row['テキスト全文'][:300]}...</p>
         </div>
         """, unsafe_allow_html=True)
 
